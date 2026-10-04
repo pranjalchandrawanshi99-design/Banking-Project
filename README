@@ -1,0 +1,130 @@
+# Simple Bank (Lite Version) - PostgreSQL
+
+A small PostgreSQL project with 4 tables, sample data, 11 practice queries, and a safe money transfer using transactions. It is meant for learning core SQL: constraints, joins, aggregation, and `BEGIN` / `COMMIT` / `ROLLBACK`.
+
+All sample data is fictional.
+
+## Database Schema
+
+Everything is created inside its own schema, `simple_bank`, so it won't touch your other data.
+
+| Table | Purpose | Key constraints |
+|---|---|---|
+| `customers` | Customer details | Unique phone number |
+| `accounts` | Savings/current accounts | `balance >= 0`, type is `SAVINGS` or `CURRENT`, FK to `customers` |
+| `transactions` | Deposits and withdrawals | `amount > 0`, FK to `accounts` |
+| `loans` | Customer loans | Status is `ACTIVE`, `CLOSED` or `DEFAULTED`, FK to `customers` |
+
+Relationships: `customers` 1-to-many `accounts` 1-to-many `transactions`, and `customers` 1-to-many `loans`.
+
+## Concepts Covered
+
+- Primary keys, foreign keys, `CHECK`, `UNIQUE`, `DEFAULT`
+- `WHERE`, `ORDER BY`, `LIMIT`
+- Aggregates: `SUM`, `AVG`, `COUNT`
+- `INNER JOIN`, `LEFT JOIN` with `IS NULL`
+- `GROUP BY` and `HAVING`
+- Transactions: `BEGIN`, `COMMIT`, `ROLLBACK`
+
+## Requirements
+
+- PostgreSQL 10 or later (uses `GENERATED ALWAYS AS IDENTITY`)
+- pgAdmin or `psql`
+
+## Setup
+
+1. Create a database:
+   ```sql
+   CREATE DATABASE bankdb;
+   ```
+2. Connect to it and run the script.
+
+   **psql:**
+   ```bash
+   psql -U postgres -d bankdb -f simple_bank.sql
+   ```
+   **pgAdmin:** right-click `bankdb` -> Query Tool -> open `simple_bank.sql`. To build only the tables and data, select everything down to the end of the `loans` INSERT and press F5.
+
+3. Verify:
+   ```sql
+   SELECT COUNT(*) FROM simple_bank.accounts;  -- expected: 10
+   ```
+
+> The script starts with `DROP SCHEMA IF EXISTS simple_bank CASCADE;`, so re-running it resets everything. It only affects the `simple_bank` schema.
+
+## Running the Queries
+
+Run Q1-Q11 one at a time. In pgAdmin, highlight a single query and press F5, because only the last statement's result is shown. In a new session or tab, run this first:
+
+```sql
+SET search_path TO simple_bank;
+```
+
+| # | Query | Concept |
+|---|---|---|
+| Q1 | All customers | `SELECT *` |
+| Q2 | Customers in Delhi | `WHERE` |
+| Q3 | Accounts with balance above 1,00,000 | `ORDER BY` |
+| Q4 | Total money, average balance, account count | Aggregates |
+| Q5 | Total deposits vs withdrawals | `GROUP BY` |
+| Q6 | Customers with their accounts | `INNER JOIN` |
+| Q7 | Top 3 customers by total balance | `JOIN` + `GROUP BY` + `LIMIT` |
+| Q8 | Customers with more than one account | `HAVING` |
+| Q9 | Customers who never transacted | `LEFT JOIN` + `IS NULL` |
+| Q10 | Customers with loans and status | `JOIN` |
+| Q11 | Total loan amount per city | `JOIN` + `GROUP BY` |
+
+### Expected results (spot-check)
+
+- **Q2:** Karan Malhotra, Vikram Singh
+- **Q3:** accounts 5, 9, 4, 7 (540000, 260000, 230000, 125000)
+- **Q8:** Rohan Mehta and Karan Malhotra, 2 accounts each
+- **Q9:** Meera Joshi
+
+## Safe Money Transfer (Transactions)
+
+Rohan (account 1) sends Rs 10,000 to Ananya (account 2). Both updates must succeed together or not at all.
+
+```sql
+BEGIN;
+UPDATE accounts SET balance = balance - 10000 WHERE account_id = 1;
+UPDATE accounts SET balance = balance + 10000 WHERE account_id = 2;
+COMMIT;
+```
+
+Select all lines from `BEGIN` to `COMMIT` and run them together.
+
+- After the transfer, account 1 = 35000 and account 2 = 92000.
+- Running it again moves another 10,000. Re-run the full script to reset.
+
+### Rollback demo
+
+```sql
+BEGIN;
+UPDATE accounts SET balance = balance - 10000 WHERE account_id = 1;
+ROLLBACK;
+```
+
+Account 1's balance stays unchanged.
+
+### Constraint test
+
+The last statement in the script is commented out. Uncomment it and run it:
+
+```sql
+UPDATE accounts SET balance = balance - 99999999 WHERE account_id = 1;
+```
+
+It fails with a "violates check constraint" error, because `balance >= 0`. This is the expected behaviour.
+
+## Project Structure
+
+```
+.
+├── simple_bank.sql   # schema, sample data, queries, transfer demo
+└── README.md
+```
+
+## License
+
+Add a license of your choice (e.g. MIT).
